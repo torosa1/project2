@@ -231,9 +231,9 @@ void ack_send(int seqNum) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) { 
-        fprintf(stderr, "Usage: %s <receiver_port> <data_drop_prob>\n", argv[0]);
-        exit(EXIT_FAILURE); // 강제 종
+    if (argc != 3) { //인수가 3개가 아닐 경우
+	fprintf("입력 조건에 맞지 않습니다.");
+        exit(EXIT_FAILURE); // 강제 종료
     }
 
     int receiver_port = atoi(argv[1]); // 수신 포트 번호를 정수로 변환하여 저장
@@ -302,5 +302,20 @@ packet.h: 데이터 패킷 구조체와 관련 함수들을 정의한 헤더 파
 5. 파일 전송이 완료되면, 특별한 종료 패킷(EOT)을 수신하여 프로그램을 종료합니다.
 
 
+#### 컴파일 화면
+https://github.com/torosa1/project2/assets/165176275/16523009-165b-4481-9bda-f60c05978188
 
+#### 송신자 실행 파일
+https://github.com/torosa1/project2/assets/165176275/9146a915-dd51-45cc-9a01-c3128b51a81a
+
+#### 수신자 실행 파일
+https://github.com/torosa1/project2/assets/165176275/c8456fea-f648-466a-b823-0a4c534b21e4
+
+#### 참고 사이트
+
+https://www.crocus.co.kr/461
+
+https://surgach.tistory.com/31
+
+https://blog.naver.com/sdug12051205/221057274601
 
