@@ -1,5 +1,6 @@
 Term Project #2
 
+
 프로젝트 코드 특징
 
 송신자에서 수신자로 파일을 전송할 수 있는 코드입니다. 파일은 고정된 길이의 데이터 청크로 분할되어야 합니다. 각 청크의 데이터는 UDP 소켓을 통해 전송됩니다.
@@ -19,7 +20,8 @@ Packet 클래스가 직렬화하여 수신합니다.(alarm함수)
 
 직렬화 및 역직렬화 기능
 
-패킷.h
+
+packet.h
 ```c
 #ifndef PACKET_H
 #define PACKET_H
@@ -44,13 +46,15 @@ void deserialize(char *buffer, Packet *pkt);
 
 #endif
 ```
-type: 패킷의 유형을 나타내는 정수 값으로, DATA, ACK, EOT 중 하나를 가집니다.
+위 코드는 함수나 구조체의 선언을 담고 있습니다.
+
+type: 패킷의 유형을 나타내는 정수 값입니다.
 seqNum: 데이터 패킷의 시퀀스 번호를 나타냅니다.
 ackNum: 확인 패킷의 확인 번호를 나타냅니다.
 length: 패킷의 데이터 길이를 나타냅니다.
 data: 실제 데이터를 저장하는 문자열 배열입니다. 최대 데이터 크기는 MAX_DATA_SIZE로 정의되어 있습니다.
 
-패킷.c
+packet.c
 ```c
 #include "packet.h"
 #include <string.h>
@@ -62,17 +66,15 @@ void serialize(Packet *pkt, char *buffer) {
 void deserialize(char *buffer, Packet *pkt) {
     memcpy(pkt, buffer, sizeof(Packet));
 }
-
 ```
-직렬화 및 역직렬화 함수
-serialize() 함수는 Packet 구조체를 직렬화하여 문자열로 변환하고, 
-deserialize() 함수는 문자열을 Packet 구조체로 역직렬화하여 변환합니다. 
-이러한 함수들은 네트워크 통신 시 데이터를 패킷으로 변환하고 다시 원래 형태로 되돌리는 데 사용됩니다.
+위 코드는 직렬화 및 역직렬화 함수를 포함합니다.
 
-사용법
-헤더 파일을 포함하여 프로그램에서 이 구조체와 함수를 사용하여 데이터를 패킷으로 변환하고 역직렬화할 수 있습니다. 
-예를 들어, 데이터를 전송할 때 serialize() 함수를 사용하여 데이터를 패킷으로 변환하고, 
-수신측에서는 deserialize() 함수를 사용하여 패킷을 다시 데이터로 변환할 수 있습니다.
+packet.h에 선언된 함수들의 정의를 활용합니다.
+
+직렬화 및 역직렬화 함수
+serialize() 함수는 Packet 구조체를 직렬화하여 문자열로 변환하고
+deserialize() 함수는 문자열을 Packet 구조체로 역직렬화하여 변환합니다.
+이러한 함수들은 네트워크 통신 시 데이터를 패킷으로 변환하고 다시 원래 형태로 되돌리는 데 사용됩니다.
 
 
 송신자
@@ -87,95 +89,93 @@ deserialize() 함수는 문자열을 Packet 구조체로 역직렬화하여 변�
 #include <arpa/inet.h>
 #include "packet.h"
 
-int sockfd;
-struct sockaddr_in receiver_addr;
-socklen_t addrlen;
-int timeout_interval;
-float ack_drop_prob;
-FILE *file;
-int seqNum = 0;
-int ack_receiver = 0;
+int sockfd; // 소켓 파일 디스크립터
+struct sockaddr_in receiver_addr; // 수신자의 주소 정보 구조체
+socklen_t addrlen; // 주소 구조체의 크기
+int timeout_interval; // 타임아웃 간격
+float ack_drop_prob; // ACK 손실 확률
+FILE *file; // 파일 포인터
+int seqNum = 0; // seq 번호
+int ack_receiver = 0; // ACK 수신 여부를 나타내는 플래그
+Packet now_packet; // 현재 전송 중인 패킷
 
+// 패킷을 전송하는 함수
 void rdt_send(Packet *pkt) {
-    char buffer[sizeof(Packet)];
-    serialize(pkt, buffer);
-    sendto(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&receiver_addr, addrlen);
+    char buffer[sizeof(Packet)]; // 패킷을 직렬화할 버퍼
+    serialize(pkt, buffer); // 패킷 직렬화
+    sendto(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&receiver_addr, addrlen); // 직렬화된 데이터를 수신자에게 전송
 }
 
+// ACK 패킷을 수신하는 함수
 void rdt_rcv() {
-    char buffer[sizeof(Packet)];
-    Packet ack_pkt;
-    if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&receiver_addr, &addrlen) > 0) {
-        deserialize(buffer, &ack_pkt);
-        if (ack_pkt.type == ACK && ack_pkt.ackNum == seqNum) {
-            ack_receiver = 1;
-            printf("ACK: 파일 %dKB 받음 ( seqNum %d번)\n", seqNum,seqNum+1);
+    char buffer[sizeof(Packet)]; // 수신한 데이터를 저장할 버퍼
+    Packet ack_pkt; // 수신한 ACK 패킷을 저장할 구조체
+    if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&receiver_addr, &addrlen) > 0) { // 데이터 수신 받음음
+        deserialize(buffer, &ack_pkt); // 데이터 역직렬화
+        if (ack_pkt.type == ACK && ack_pkt.ackNum == seqNum) { // ACK 패킷의 타입과 시퀀스 번호 확인
+            ack_receiver = 1; // ACK 수신 여부 플래그 설정
+            printf("ACK: 파일 %dKB 받음 (seqNum %d번)\n", seqNum, seqNum); // ACK 수신 메시지 출력
             sleep(1);
         }
     }
 }
 
+// 타임아웃 발생 시 호출되는 핸들러 함수
 void signalrm_handler(int sig){
-    printf("재전송 요청\n");
-    ack_receiver = 1;
+    printf("재전송 요청 (seqNum %d)\n", seqNum);
+    sleep(1);
+    rdt_send(&now_packet); // 현재 패킷 재전송
+    alarm(timeout_interval); // 타임아웃 설정
 }
 
 int main(int argc, char *argv[]) {
     if (argc != 7) {
-        fprintf(stderr, "입력방식: %s <송신포트> <수신IP> <수신포트> <타임아웃> <파일이름> <ACK손실확률>\n", argv[0]);
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "입력방식: %s <송신포트> <수신IP> <수신포트> <타임아웃> <파일이름> <ACK손실확률>\n", argv[0]); //사용자 인수 입력 받음
+        return 1;
     }
 
-    int sender_port = atoi(argv[1]);
-    char *receiver_ip = argv[2];
-    int receiver_port = atoi(argv[3]);
-    timeout_interval = atoi(argv[4]);
-    char *file_name = argv[5];
-    ack_drop_prob = atof(argv[6]);
+    int sender_port = atoi(argv[1]); // 송신 포트 번호
+    char *receiver_ip = argv[2]; // 수신자의 IP 주소
+    int receiver_port = atoi(argv[3]); // 수신 포트 번호
+    timeout_interval = atoi(argv[4]); // 타임아웃 간격
+    char *file_name = argv[5]; // 전송할 파일 이름
+    ack_drop_prob = atof(argv[6]); // ACK 손실 확률
 
-    file = fopen(file_name, "rb");
-    if (file == NULL) {
-        perror("파일 열기 실패");
-        exit(EXIT_FAILURE);
-    }
+    file = fopen(file_name, "rb"); // 읽기 모드로 파일 열기
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); // UDP 소켓 생성
+   
+    memset(&receiver_addr, 0, sizeof(receiver_addr)); // 주소 구조체 설정
+    receiver_addr.sin_family = AF_INET; // 주소 체계 설정
+    receiver_addr.sin_port = htons(receiver_port); // 포트 번호 설정
+    receiver_addr.sin_addr.s_addr = inet_addr(receiver_ip); // IP 주소 설정
+    addrlen = sizeof(receiver_addr); // 주소 구조체 크기 설정
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        perror("소켓 생성 실패");
-        exit(EXIT_FAILURE);
-    }
+    // 타임아웃 시그널 핸들러 설정
+    signal(SIGALRM, signalrm_handler); // SIGALRM 신호 발생 시 signalrm_handler 함수 호출
 
-    memset(&receiver_addr, 0, sizeof(receiver_addr));
-    receiver_addr.sin_family = AF_INET;
-    receiver_addr.sin_port = htons(receiver_port);
-    receiver_addr.sin_addr.s_addr = inet_addr(receiver_ip);
-    addrlen = sizeof(receiver_addr);
+    char buffer[MAX_DATA]; // 파일 데이터를 읽어올 버퍼
+    int bytes_read; // 읽어온 바이트 수
 
-    signal(SIGALRM, signalrm_handler);
+    // 파일에서 데이터를 읽어 패킷을 생성하고 전송
+    while ((bytes_read = fread(buffer, 1, MAX_DATA, file)) > 0) {
+        now_packet = (Packet){DATA, seqNum, 0, bytes_read}; // 새로운 데이터 패킷 생성
+        memcpy(now_packet.data, buffer, bytes_read); // 파일 데이터 패킷에 복사
 
-    char buffer[MAX_DATA_SIZE];
-    int bytes_read;
-
-    while ((bytes_read = fread(buffer, 1, MAX_DATA_SIZE, file)) > 0) {
-        Packet pkt = {DATA, seqNum, 0, bytes_read};
-        memcpy(pkt.data, buffer, bytes_read);
-
-        ack_receiver = 0;
-        while (!ack_receiver) {
-            rdt_send(&pkt);
-            alarm(timeout_interval);
-            rdt_rcv();
-            alarm(0);
+        ack_receiver = 0; // ACK 수신 여부 초기화
+        while (!ack_receiver) { // ACK를 받을 때까지 반복
+            rdt_send(&now_packet); // 패킷 전송
+            alarm(timeout_interval); // 타임아웃 설정
+            rdt_rcv(); // ACK 수신 대기
+            alarm(0); // 타임아웃 취소
         }
-        seqNum++;
+        seqNum++; // seq 번호 증가
     }
-
-    Packet finish_tran = {EOT, seqNum, 0, 0};
-    rdt_send(&finish_tran);
+    Packet finish_tran = {EOT, seqNum, 0, 0}; // 전송 완료 패킷 생성
+    rdt_send(&finish_tran); // 전송 완료 패킷 전송
     printf("파일 전송 완료!\n");
 
-    fclose(file);
-    close(sockfd);
+    fclose(file); // 파일 닫기
+    close(sockfd); // 소켓 닫기
     return 0;
 }
 
@@ -212,65 +212,65 @@ packet.h: 데이터 패킷 구조체와 관련 함수들을 정의한 헤더 파
 #include <time.h>
 #include "packet.h"
 
-int sockfd;
-struct sockaddr_in local_addr, sender_addr;
-socklen_t addrlen;
-float data_drop_prob;
-FILE *file;
-int expected_seqNum = 0;
+int sockfd; // 소켓 파일 디스크립터 변수 선언
+struct sockaddr_in local_addr, sender_addr; // 송신자, 수신자 주소 정보 구조체 선언
+socklen_t addrlen; // 소켓 주소 길이 변수 선언
+float data_drop_prob; // 데이터 손실 확률 변수 선언
+FILE *file; // 파일 포인터 변수 선언
+int expected_seqNum = 0; // 시퀀스 번호 변수 선언
 
+// ACK 패킷을 송신하는 함수 정의
 void ack_send(int seqNum) {
-    Packet ack_pkt = {ACK, 0, seqNum, 0};
-    char buffer[sizeof(Packet)];
-    serialize(&ack_pkt, buffer);
-    sendto(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_addr, addrlen);
+    Packet ack_pkt = {ACK, 0, seqNum, 0}; // ACK 패킷 생성
+    char buffer[sizeof(Packet)]; // 패킷을 저장할 버퍼 생성
+    serialize(&ack_pkt, buffer); // 패킷을 직렬화하여 버퍼에 저장
+    sendto(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_addr, addrlen); // 송신자에게 ACK 패킷 전송
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc != 3) { 
         fprintf(stderr, "Usage: %s <receiver_port> <data_drop_prob>\n", argv[0]);
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE); // 강제 종
     }
 
-    int receiver_port = atoi(argv[1]);
-    data_drop_prob = atof(argv[2]);
+    int receiver_port = atoi(argv[1]); // 수신 포트 번호를 정수로 변환하여 저장
+    data_drop_prob = atof(argv[2]); // 데이터 손실 확률을 실수로 변환하여 저장
 
-    srand(time(0));
+    srand(time(0)); // 난수 생성기 초기화
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0); // UDP 소켓 생성
 
-    memset(&local_addr, 0, sizeof(local_addr));
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port = htons(receiver_port);
-    local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    memset(&local_addr, 0, sizeof(local_addr)); // 지역 주소 정보 초기화
+    local_addr.sin_family = AF_INET; // IPv4 주소 체계 사용
+    local_addr.sin_port = htons(receiver_port); // 수신 포트 번호 설정
+    local_addr.sin_addr.s_addr = htonl(INADDR_ANY); // 모든 네트워크 인터페이스에 바인드
+    bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr)); // 소켓을 지역 주소에 바인드
 
-    bind(sockfd, (struct sockaddr*)&local_addr, sizeof(local_addr));
+    addrlen = sizeof(sender_addr); // 송신자 주소의 길이를 저장할 변수 초기화
+    char buffer[sizeof(Packet)]; // 패킷을 저장할 버퍼 선언
+    Packet pkt; // 패킷 변수 선언
 
-    addrlen = sizeof(sender_addr);
-    char buffer[sizeof(Packet)];
-    Packet pkt;
-
-    file = fopen("new file", "wb");
+    file = fopen("new file", "wb"); // "new file"이름으로 쓰기 모드로 파일 열기
 
     while (1) {
-        if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_addr, &addrlen) > 0) {
-            deserialize(buffer, &pkt);
+        if (recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr*)&sender_addr, &addrlen) > 0) { // 송신자로부터 패킷 수신
+            deserialize(buffer, &pkt); // 받은 데이터를 패킷으로 역직렬화
 
-            if (pkt.type == DATA) {
-                if ((float)rand() / RAND_MAX < data_drop_prob) {
-                    printf("seqNum %d번 데이터 드랍\n", pkt.seqNum);
+            if (pkt.type == DATA) { // 받은 패킷이 데이터 패킷 확
+                if ((float)rand() / RAND_MAX < data_drop_prob) { // 무작위 확률에 따라 데이터를 드랍할지 결정
+                    printf("seqNum %d번 데이터 드랍\n", pkt.seqNum); // 드랍된 데이터의 seq 번호 출력
 		    sleep(1);
                     continue;
                 }
 
-                if (pkt.seqNum == expected_seqNum) {
-                    fwrite(pkt.data, 1, pkt.length, file);
-                    ack_send(expected_seqNum);
-                    expected_seqNum++;
+                if (pkt.seqNum == expected_seqNum) { // 받은 패킷의 시퀀스 번호가 기대하는 번호와 일치하면
+                    fwrite(pkt.data, 1, pkt.length, file); // 파일에 데이터 쓰기
+                    ack_send(expected_seqNum); // ACK 패킷 송신
+                    expected_seqNum++; // 기대하는 시퀀스 번호 증가
                 } else {
-                    ack_send(expected_seqNum - 1);
+                    ack_send(expected_seqNum - 1); // 마지막으로 수신한 데이터의 ACK 패킷 송신
                 }
-            } else if (pkt.type == EOT) {
+            } else if (pkt.type == EOT) { // 받은 패킷이 EOT 패킷이면 종료료
                 printf("파일 전송 완료!\n");
                 break;
             }
@@ -289,8 +289,6 @@ int main(int argc, char *argv[]) {
 <수신포트>: 데이터를 수신하는 포트 번호입니다.
 <데이터손실확률>: 데이터를 드랍할 확률입니다.
 
-파일 구성
-receiver.c: 메인 프로그램 소스 코드 파일입니다.
 packet.h: 데이터 패킷 구조체와 관련 함수들을 정의한 헤더 파일입니다.
 
 프로그램 작동순서
@@ -299,3 +297,7 @@ packet.h: 데이터 패킷 구조체와 관련 함수들을 정의한 헤더 파
 3. 데이터를 드랍할 확률에 따라 일부 패킷을 드랍하고, 나머지는 파일에 쓰여집니다.
 4. 올바른 시퀀스 번호를 가진 데이터 패킷에 대해 ACK(확인)을 송신하는 패킷을 전송합니다.
 5. 파일 전송이 완료되면, 특별한 종료 패킷(EOT)을 수신하여 프로그램을 종료합니다.
+
+
+
+
